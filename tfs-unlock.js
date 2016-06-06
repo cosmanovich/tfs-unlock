@@ -99,17 +99,25 @@ tfs = function (paths, command) { // verfied meaning the path and file exisit
 	return deferred.promise;
 };
 _handlePaths = function (paths, command) {
-	return Q.all(paths.map(function (filepath) {
-		var commandLine,
-			deferred = Q.defer(),
-			exists,
-			log = '';
-		filepath = fs.realpathSync(filepath); // resolve full path
-		commandLine = "tf.exe " + command + " \"" + filepath + "\"";
-		exists = fs.existsSync(filepath);
-
-		if (exists) {
-			shell.exe(commandLine).then(function (out) {
+	var log = '';
+	var existingPaths = [];
+	var existingPath;
+	paths.forEach(function(filepath){
+		existingPath = fs.realpathSync(filepath);
+		if(fs.existsSync(existingPath)){
+			existingPaths.push(existingPath);
+		}
+		else
+			throw new ReferenceError('File path is not found: ' + existingPath);
+	});
+	var deferred = Q.defer();
+	
+	if(existingPaths.length !== 0){	
+		var filesString = '"' + existingPaths.join('" "') + '"';
+		var commandLine = "tf.exe " + command + " " + filesString;
+		console.log(commandLine);
+		
+		shell.exe(commandLine).then(function (out) {
 				log += out.message;
 
 				if (out.exitCode && out.exitCode !== 0) {
@@ -125,13 +133,11 @@ _handlePaths = function (paths, command) {
 				}
 				deferred.notify(progress);
 			});
+	}
+	else
+		throw new ReferenceError('No files found');
 
-		} else {
-			throw new ReferenceError('File path is not found: ' + filepath);
-		}
-
-		return deferred.promise;
-	}));
+	return deferred.promise;
 };
 findVisualStudioPath = function () {
 	var wd;
